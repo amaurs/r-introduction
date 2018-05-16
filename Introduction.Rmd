@@ -19,3 +19,103 @@ places <- read_xml("/Users/agutierrez/Downloads/places.xml")
 ```
 
 
+```{r}
+id <- places %>% xml_find_all("//place") %>% map(xml_attr, "place_id") %>% as.numeric()
+name <- places %>% xml_find_all("//place/name") %>% xml_text
+brand <- places %>% xml_find_all("//place/brand") %>% xml_text
+longitude <- places %>% xml_find_all("//place/location/x") %>% xml_text %>% as.numeric()
+latitude <- places %>% xml_find_all("//place/location/y") %>% xml_text %>% as.numeric()
+
+```
+
+
+```{r}
+places_df <- tibble(id=id, name=name, brand=brand, lat=latitude, lon=longitude)
+```
+
+```{r}
+prices <- read_xml("~/Downloads/prices.xml")
+clean <- function(x){ 
+  nodes <- xml_find_all(x, ".//gas_price")
+  row <- c(regular = NA, premium = NA, diesel = NA)
+  if(length(nodes) > 0) {
+    for(n in 1:length(nodes)) {
+      if(xml_attr(nodes[n], "type") == "regular") {
+        row["regular"] = as.numeric(xml_text(nodes[n]))
+      } else if(xml_attr(nodes[n], "type") == "premium") {
+        row["premium"] = as.numeric(xml_text(nodes[n]))
+      } else if(xml_attr(nodes[n], "type") == "diesel") {
+        row["diesel"] = as.numeric(xml_text(nodes[n]))
+      }
+    }
+  }
+  return(row)
+}
+
+id <- prices %>% xml_find_all("//place") %>% map(xml_attr, "place_id") %>% as.numeric()
+
+clean_prices <- prices %>% xml_find_all("//place") %>% map(clean)
+
+price_matrix <- matrix(unlist(clean_prices), nrow=length(id), byrow=T)
+
+```
+
+```{r}
+prices_df <- tibble(id=id, 
+       regular=price_matrix[,1],
+       premium=price_matrix[,2],
+       diesel=price_matrix[,3])
+
+```
+
+```{r}
+gas_data <- places_df %>% inner_join(prices_df, by="id")
+```
+
+
+```{r}
+gas_data_subset <- gas_data[sample(nrow(gas_data), 100),]
+```
+
+
+
+```{r}
+regular_mean <- gas_data_subset$regular %>% as.numeric %>% mean(na.rm=TRUE)
+get_color <- function(data, threshold) {
+  sapply(data$regular, function(regular) {
+    if(is.na(regular)) {
+      "gray"
+    } else if(regular > threshold) {
+      "green"
+    } else {
+      "red"
+    } })
+}
+
+```
+
+```{r}
+library("leaflet")
+icons <- awesomeIcons(
+  icon = 'ios-close',
+  library = 'ion',
+  markerColor = unname(get_color(gas_data_subset, regular_mean))
+)
+
+
+leaflet(data = gas_data_subset) %>% addTiles() %>%
+  addAwesomeMarkers(~lon, ~lat, icon=icons, popup =~paste("<h4>id: ", id, "</h4>",
+                                                          "regular: ", regular, 
+                                                          "<br>premium: ", premium,
+                                                          "<br>diesel: ", diesel), label = ~as.character(name))
+```
+
+## Crear shape file
+
+
+```{r, eval=FALSE}
+library("sf")
+points_sf <- st_as_sf(gas_data, coords = c("lon", "lat"), crs = 4326)
+st_write(points_sf, "~/Downloads/gas_data.shp")
+```
+
