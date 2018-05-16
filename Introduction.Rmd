@@ -1,0 +1,13 @@
+---
+title: "Introduction"
+author: "Amaury Gutiérrez Acosta"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Open Data
+
+Existen muchas opciones para obtener datos abiertos. Para el presente ejercicio usaremos dos tablas extraidas de [datos.gob.mx](https://datos.gob.mx/busca/dataset/estaciones-de-servicio-gasolineras-y-precios-comerciales-de-gasolina-y-diesel-de-cre) sobre el precio de la gasolina en los establecimientos registrados a lo largo y ancho del país.
